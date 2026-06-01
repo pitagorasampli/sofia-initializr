@@ -1,0 +1,66 @@
+package <%= basePackage %>.infrastructure.web.filter;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
+
+import java.util.List;
+
+@Component
+public class AuthenticationFilter implements WebFilter {
+	private static final Logger log = LoggerFactory.getLogger(AuthenticationFilter.class);
+
+	@Value("${sofia.http.auth.basic}")
+	private List<String> validBasicTokens;
+
+	@Override
+	public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+		String path = exchange.getRequest().getURI().getPath();
+		if (path.startsWith("/actuator") || path.startsWith("/api/public")) {
+			return chain.filter(exchange);
+		}
+
+		String header = exchange.getRequest().getHeaders().getFirst("Authorization");
+
+		if (header == null || header.isBlank()) {
+			log.warn("Authorization header is missing or invalid");
+			return unauthorized(exchange);
+		}
+
+		if (header.startsWith("Basic ")) {
+			String token = header.substring(6).trim();
+			if (token.isBlank() || !validBasicTokens.contains(token)) {
+				log.warn("Invalid basic token");
+				return forbidden(exchange);
+			}
+		} else if (header.startsWith("Bearer ")) {
+			String token = header.substring(7).trim();
+			if (token.isBlank()) {
+				log.warn("Bearer token is blank");
+				return forbidden(exchange);
+			}
+			// TODO: validate bearer token (JWT verification, etc.)
+		} else {
+			log.warn("Authorization header is missing or invalid");
+			return unauthorized(exchange);
+		}
+
+		return chain.filter(exchange);
+	}
+
+	private Mono<Void> unauthorized(ServerWebExchange exchange) {
+		exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+		return exchange.getResponse().setComplete();
+	}
+
+	private Mono<Void> forbidden(ServerWebExchange exchange) {
+		exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+		return exchange.getResponse().setComplete();
+	}
+}

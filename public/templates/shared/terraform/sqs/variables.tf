@@ -1,0 +1,11 @@
+variable account_id { type = string; default = "" }
+variable protocol { type = string; default = "" }
+variable name { type = string; default = "" }
+variable fifo { type = bool; default = false }
+variable content_based_deduplication { type = bool; default = null }
+variable topic_subscription { type = string; default = "" }
+variable max-receive-count { type = number; default = 60 }
+variable visibility_timeout_seconds { type = number; default = 60 }
+variable delay_seconds { type = number; default = 0 }
+variable message_retention_seconds { type = string; default = "1209600" }
+variable dlq_message_retention_seconds { type = string; default = "1209600" }

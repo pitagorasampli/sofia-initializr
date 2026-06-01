@@ -1,0 +1,55 @@
+package <%= basePackage %>.infrastructure.exception.handler;
+
+import <%= basePackage %>.domain.exception.BaseException;
+import <%= basePackage %>.domain.exception.InternalCodeNormalizer;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.opentelemetry.api.trace.Span;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Map;
+
+@Provider
+public class ExceptionHandler implements ExceptionMapper<BaseException> {
+	private static final Logger logger = Logger.getLogger(ExceptionHandler.class);
+	private final Counter businessExceptionCounter;
+	private final String appName;
+	private final String appProfile;
+
+	@Inject
+	public ExceptionHandler(MeterRegistry meterRegistry, @ConfigProperty(name = "quarkus.application.name") String appName, @ConfigProperty(name = "app.profile") String appProfile) {
+		this.businessExceptionCounter = Counter.builder("business_exception_counter").description("Number of business exceptions").register(meterRegistry);
+		this.appName = appName;
+		this.appProfile = appProfile;
+	}
+
+	@Override
+	public Response toResponse(BaseException ex) {
+		String normalizedInternalCode = InternalCodeNormalizer.normalizeOrFallback(ex.internalCode());
+		businessExceptionCounter.increment();
+
+		Span span = Span.current();
+		String correlationId = span.getSpanContext().isValid() ? span.getSpanContext().getTraceId() : "no-trace-id";
+
+		StringWriter sw = new StringWriter();
+		ex.printStackTrace(new PrintWriter(sw));
+
+		String fullMessage = ex.getClass().getSimpleName() + " | internalCode=" + normalizedInternalCode + " | httpStatus=" + ex.httpStatus();
+		GelfLogMessage logMessage = GelfLogMessage.of(ExceptionHandler.class, "toResponse", fullMessage, sw.toString(), correlationId, appName, appProfile);
+		logger.error(logMessage);
+
+		return Response.status(ex.httpStatus()).entity(Map.of(
+			"internalCode", normalizedInternalCode,
+			"friendlyMessage", ex.friendlyMessage(),
+			"internalTraceId", ex.internalTraceId(),
+			"type", ex.type()
+		)).build();
+	}
+}

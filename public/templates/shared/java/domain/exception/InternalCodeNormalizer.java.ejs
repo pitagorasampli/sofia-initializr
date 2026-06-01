@@ -1,0 +1,17 @@
+package <%= basePackage %>.domain.exception;
+
+public final class InternalCodeNormalizer {
+	public static final String FALLBACK_INTERNAL_CODE = "SOFIA.INV.INV.APP.0001";
+
+	private InternalCodeNormalizer() {}
+
+	public static String normalizeOrFallback(String internalCode) {
+		if (internalCode == null || internalCode.isBlank()) return FALLBACK_INTERNAL_CODE;
+		try {
+			InternalCodeParser.parse(internalCode.trim());
+			return internalCode.trim();
+		} catch (IllegalArgumentException ignored) {
+			return FALLBACK_INTERNAL_CODE;
+		}
+	}
+}

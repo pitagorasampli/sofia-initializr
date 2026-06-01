@@ -1,0 +1,10 @@
+quarkus:
+  log:
+    level: WARN
+    category:
+      "<%= basePackage %>":
+        level: INFO
+
+app:
+  profile: prod
+  squad-name: ${APP_SQUAD_NAME:plataforma}

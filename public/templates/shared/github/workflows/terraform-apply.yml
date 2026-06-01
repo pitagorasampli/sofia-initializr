@@ -1,0 +1,59 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+      - stg
+      - hml
+      - qa
+      - dev
+    paths:
+      - 'terraform/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  tags-vars:
+    name: Tags Variables
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/image-tags-vars-v2.yaml@main
+    with:
+      BRANCH_NAME: ${{ github.ref_name }}
+      BB_NUMBER: ${{ github.run_number }}
+
+  terraform-apply:
+    if: ${{ github.ref_name != 'main' }}
+    name: Terraform Apply Non-Prod
+    needs: tags-vars
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/terraform_apply_nonprod.yaml@main
+    secrets:
+      DEV_DEPLOY_ROLE: ${{ secrets.SOFIA_OIDC_NONPROD }}
+    with:
+      TERRAFORM_WORKSPACE: ${{ needs.tags-vars.outputs.SHORT_TAG }}
+
+  approval-request-notification:
+    if: ${{ github.ref_name == 'main' }}
+    name: Approval Request Notification
+    needs: tags-vars
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/notify_teams.yaml@main
+    secrets:
+      TEAMS_WEBHOOK_URL: ${{ secrets.WORKFLOW_NOTIFICATION }}
+    with:
+      TITLE: 'Approval Request for Terraform Application in Production'
+      DESCRIPTION: 'A new version of the service is ready to be applied in the production environment. Please review and approve the Terraform application.'
+      SORT_TAG: ${{ format('terraform-{0}::{1}', github.event.repository.name, github.run_number) }}
+
+  terraform-apply-prod:
+    if: ${{ github.ref_name == 'main' }}
+    name: Terraform Apply Production
+    needs:
+      - approval-request-notification
+      - tags-vars
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/terraform_apply_prod.yaml@main
+    secrets:
+      PROD_DEPLOY_ROLE: ${{ secrets.SOFIA_OIDC_PRODUCTION }}
+    with:
+      TERRAFORM_WORKSPACE: ${{ needs.tags-vars.outputs.SHORT_TAG }}

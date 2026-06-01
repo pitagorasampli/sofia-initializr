@@ -1,0 +1,20 @@
+package <%= basePackage %>.infrastructure.web.context;
+
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
+
+import java.util.List;
+import java.util.Locale;
+
+@RequestScoped
+public class RequestContext {
+	@Context
+	HttpHeaders headers;
+
+	public Locale getLocale() {
+		if (headers == null) return Locale.getDefault();
+		List<Locale> locales = headers.getAcceptableLanguages();
+		return locales != null && !locales.isEmpty() ? locales.get(0) : Locale.getDefault();
+	}
+}

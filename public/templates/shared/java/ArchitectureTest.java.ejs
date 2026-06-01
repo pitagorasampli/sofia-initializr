@@ -1,0 +1,89 @@
+package <%= basePackage %>;
+
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+
+@AnalyzeClasses(packages = "<%= basePackage %>", importOptions = ImportOption.DoNotIncludeTests.class)
+class ArchitectureTest {
+
+    // === Domain isolation ===
+
+    @ArchTest
+    static final ArchRule domain_nao_depende_de_infrastructure =
+        noClasses().that().resideInAPackage("..domain..")
+            .should().dependOnClassesThat().resideInAPackage("..infrastructure..");
+
+    @ArchTest
+    static final ArchRule domain_nao_depende_de_application =
+        noClasses().that().resideInAPackage("..domain..")
+            .should().dependOnClassesThat().resideInAPackage("..application..");
+
+    @ArchTest
+    static final ArchRule domain_nao_depende_de_spring =
+        noClasses().that().resideInAPackage("..domain..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                "org.springframework..",
+                "jakarta..",
+                "io.quarkus.."
+            );
+
+    // === Ports ===
+
+    @ArchTest
+    static final ArchRule ports_devem_ser_interfaces =
+        classes().that().resideInAPackage("..domain.port..")
+            .should().beInterfaces();
+
+    // === Application layer ===
+
+    @ArchTest
+    static final ArchRule usecases_nao_acessam_adapters =
+        noClasses().that().resideInAPackage("..application..")
+            .should().dependOnClassesThat().resideInAPackage("..adapters..");
+
+    // === Infrastructure layer ===
+
+    @ArchTest
+    static final ArchRule infrastructure_nao_depende_de_application =
+        noClasses().that().resideInAPackage("..infrastructure..")
+            .should().dependOnClassesThat().resideInAPackage("..application..");
+
+    // === Adapters isolation ===
+
+    @ArchTest
+    static final ArchRule adapters_input_nao_acessam_adapters_output =
+        noClasses().that().resideInAPackage("..adapters.input..")
+            .should().dependOnClassesThat().resideInAPackage("..adapters.output..");
+
+    @ArchTest
+    static final ArchRule adapters_output_nao_acessam_adapters_input =
+        noClasses().that().resideInAPackage("..adapters.output..")
+            .should().dependOnClassesThat().resideInAPackage("..adapters.input..");
+
+    // === Layered architecture ===
+
+    @ArchTest
+    static final ArchRule arquitetura_em_camadas =
+        layeredArchitecture()
+            .consideringAllDependencies()
+            .layer("Domain").definedBy("..domain..")
+            .layer("Application").definedBy("..application..")
+            .layer("Infrastructure").definedBy("..infrastructure..")
+            .whereLayer("Domain").mayOnlyBeAccessedByLayers("Application", "Infrastructure")
+            .whereLayer("Application").mayOnlyBeAccessedByLayers("Infrastructure")
+            .whereLayer("Infrastructure").mayNotBeAccessedByAnyLayer();
+
+    // === No cyclic dependencies ===
+
+    @ArchTest
+    static final ArchRule sem_ciclos_entre_pacotes =
+        slices().matching("<%= basePackage %>.(*)..")
+            .should().beFreeOfCycles();
+}

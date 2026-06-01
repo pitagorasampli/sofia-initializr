@@ -1,0 +1,13 @@
+package <%= basePackage %>.infrastructure.web.context;
+
+import org.springframework.stereotype.Component;
+
+import java.util.Locale;
+
+@Component
+public class RequestContext {
+
+	public Locale getLocale() {
+		return Locale.getDefault();
+	}
+}

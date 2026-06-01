@@ -1,0 +1,68 @@
+package <%= basePackage %>.infrastructure.k8s;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.health.HealthCheck;
+import org.eclipse.microprofile.health.HealthCheckResponse;
+import org.eclipse.microprofile.health.HealthCheckResponseBuilder;
+import org.eclipse.microprofile.health.Readiness;
+<% if (hasMysql) { %>
+import jakarta.inject.Inject;
+import javax.sql.DataSource;
+import java.sql.Connection;
+<% } %>
+<% if (hasMongodb) { %>
+import jakarta.inject.Inject;
+import com.mongodb.client.MongoClient;
+import org.bson.Document;
+<% } %>
+<% if (hasRedis) { %>
+import jakarta.inject.Inject;
+import io.quarkus.redis.datasource.ReactiveRedisDataSource;
+<% } %>
+
+@Readiness
+@ApplicationScoped
+public class ReadinessCheck implements HealthCheck {
+<% if (hasMysql) { %>
+	@Inject
+	DataSource dataSource;
+<% } %>
+<% if (hasMongodb) { %>
+	@Inject
+	MongoClient mongoClient;
+<% } %>
+<% if (hasRedis) { %>
+	@Inject
+	ReactiveRedisDataSource redisDataSource;
+<% } %>
+
+	@Override
+	public HealthCheckResponse call() {
+		HealthCheckResponseBuilder builder = HealthCheckResponse.named("<%= serviceName %>-readiness");
+<% if (hasMysql) { %>
+		try (Connection conn = dataSource.getConnection()) {
+			conn.isValid(2);
+			builder.withData("mysql", "UP");
+		} catch (Exception e) {
+			return builder.withData("mysql", "DOWN: " + e.getMessage()).down().build();
+		}
+<% } %>
+<% if (hasMongodb) { %>
+		try {
+			mongoClient.getDatabase("admin").runCommand(new Document("ping", 1));
+			builder.withData("mongodb", "UP");
+		} catch (Exception e) {
+			return builder.withData("mongodb", "DOWN: " + e.getMessage()).down().build();
+		}
+<% } %>
+<% if (hasRedis) { %>
+		try {
+			redisDataSource.execute("PING").await().indefinitely();
+			builder.withData("redis", "UP");
+		} catch (Exception e) {
+			return builder.withData("redis", "DOWN: " + e.getMessage()).down().build();
+		}
+<% } %>
+		return builder.up().build();
+	}
+}

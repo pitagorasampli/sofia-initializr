@@ -1,0 +1,23 @@
+package <%= basePackage %>.domain.exception.enums;
+
+public enum InternalCodeEnum {
+	// DEFAULT (DFL)
+	BAD_REQUEST("SOFIA.<%= projectCode %>.DFL.APP.0001", "default.bad-request"),
+	UNAUTHORIZED("SOFIA.<%= projectCode %>.DFL.BUS.0001", "default.unauthorized"),
+	FORBIDDEN("SOFIA.<%= projectCode %>.DFL.BUS.0002", "default.forbidden"),
+	NOT_FOUND("SOFIA.<%= projectCode %>.DFL.BUS.0003", "default.not-found"),
+	CONFLICT("SOFIA.<%= projectCode %>.DFL.BUS.0004", "default.conflict"),
+	UNPROCESSABLE_ENTITY("SOFIA.<%= projectCode %>.DFL.APP.0003", "default.unprocessable-entity"),
+	;
+
+	private final String code;
+	private final String messageKey;
+
+	InternalCodeEnum(String code, String messageKey) {
+		this.code = code;
+		this.messageKey = messageKey;
+	}
+
+	public String code() { return code; }
+	public String messageKey() { return messageKey; }
+}

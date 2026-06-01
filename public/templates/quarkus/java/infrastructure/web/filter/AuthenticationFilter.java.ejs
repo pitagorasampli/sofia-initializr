@@ -1,0 +1,66 @@
+package <%= basePackage %>.infrastructure.web.filter;
+
+import jakarta.annotation.Priority;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.Priorities;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import java.util.List;
+
+import static jakarta.ws.rs.core.Response.Status;
+import static jakarta.ws.rs.core.Response.status;
+
+@Provider
+@Authenticated
+@Priority(Priorities.AUTHENTICATION)
+public class AuthenticationFilter implements ContainerRequestFilter {
+	private static final Logger log = Logger.getLogger(AuthenticationFilter.class);
+
+	@ConfigProperty(name = "sofia.http.auth.basic")
+	List<String> validBasicTokens;
+
+	@Inject
+	public AuthenticationFilter() {
+	}
+
+	@Override
+	public void filter(ContainerRequestContext ctx) {
+		String header = ctx.getHeaderString("Authorization");
+
+		if (header == null || header.isBlank()) {
+			log.warn("Authorization header is missing or invalid");
+			ctx.abortWith(status(Status.UNAUTHORIZED).build());
+			return;
+		}
+
+		if (header.startsWith("Basic ")) {
+			handleBasic(ctx, header.substring(6).trim());
+		} else if (header.startsWith("Bearer ")) {
+			handleBearer(ctx, header.substring(7).trim());
+		} else {
+			log.warn("Authorization header is missing or invalid");
+			ctx.abortWith(status(Status.UNAUTHORIZED).build());
+		}
+	}
+
+	private void handleBasic(ContainerRequestContext ctx, String token) {
+		if (token.isBlank() || !validBasicTokens.contains(token)) {
+			log.warn("Authorization header is present but token is missing, blank or invalid");
+			ctx.abortWith(status(Status.FORBIDDEN).build());
+		}
+	}
+
+	private void handleBearer(ContainerRequestContext ctx, String token) {
+		if (token.isBlank()) {
+			log.warn("Authorization header is present but token is missing or blank");
+			ctx.abortWith(status(Status.FORBIDDEN).build());
+			return;
+		}
+
+		// TODO: validate bearer token (JWT verification, Redis cache lookup, etc.)
+	}
+}

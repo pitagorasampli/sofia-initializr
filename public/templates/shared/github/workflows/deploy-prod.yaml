@@ -1,0 +1,85 @@
+name: Deploy to Production Environments
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  issues: write
+
+jobs:
+  codeartifact-vars:
+    name: CodeArtifact Variables
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/codeartifact-vars.yaml@main
+    secrets:
+      ARN_ROLE: ${{ secrets.OICD_AMPLI }}
+    with:
+      BRANCH_NAME: ${{ github.ref_name }}
+      PACKAGE_MANAGER: 'maven'
+      IS_LEGACY: false
+
+  tags-vars:
+    name: Tags Variables
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/image-tags-vars-v2.yaml@main
+    with:
+      BRANCH_NAME: ${{ github.ref_name }}
+      BB_NUMBER: ${{ github.run_number }}
+
+  approval_request_notification:
+    name: Approval Request Notification
+    needs:
+      - tags-vars
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/notify_teams.yaml@main
+    secrets:
+      TEAMS_WEBHOOK_URL: ${{ secrets.WORKFLOW_NOTIFICATION }}
+    with:
+      TITLE: "Approval Request for Deployment to Production"
+      DESCRIPTION: "A new version of the service is ready to be deployed to the production environment. Please review and approve the deployment."
+      SORT_TAG: ${{ needs.tags-vars.outputs.TAG }}
+
+  wait_for_approval:
+    name: Wait for Approval
+    environment: production
+    needs: [ approval_request_notification ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Approval
+        run: echo "Requesting approval!"
+
+  deploy:
+    name: Deploy to Non-Prod Environment
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/mvn_cd.yaml@main
+    needs:
+      - codeartifact-vars
+      - tags-vars
+      - wait_for_approval
+    secrets:
+      CODEARTIFACT_AUTH_TOKEN: ${{ needs.codeartifact-vars.outputs.CODEARTIFACT_AUTH_TOKEN }}
+      ECR_URL: ${{ github.ref_name == 'qa' && secrets.ECR_URL_SOFIA_QA || secrets.ECR_URL }}
+      ARN_ROLE: ${{ github.ref_name == 'qa' && secrets.OIDC_SOFIA_QA || secrets.OICD_AMPLI }}
+    with:
+      CODEARTIFACT_REPO_URL: ${{ needs.codeartifact-vars.outputs.CODEARTIFACT_REPO_URL }}
+      PROFILE_ACTIVE: production
+      SERVICE_NAME: ${{ github.event.repository.name }}
+      BB_NUMBER: ${{ github.run_number }}
+      TAG: ${{ needs.tags-vars.outputs.TAG }}
+      SHORT_TAG: ${{ needs.tags-vars.outputs.SHORT_TAG }}
+      MAVEN_CHANGELIST: ''
+
+  update-image-tag:
+    name: Update Service Image Tag
+    needs:
+      - deploy
+      - tags-vars
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/sofia-app-token-management.yaml@main
+    secrets:
+      ECR_URL: ${{ github.ref_name == 'qa' && secrets.ECR_URL_SOFIA_QA || secrets.ECR_URL }}
+      APP_CLIENT_ID: ${{ secrets.APP_TOKEN_MGMT_CLIENT_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_TOKEN_MGMT_PRIVATE_KEY }}
+    with:
+      TAG: ${{ needs.tags-vars.outputs.TAG }}
+      SHORT_TAG: ${{ needs.tags-vars.outputs.SHORT_TAG }}

@@ -1,0 +1,11 @@
+package <%= basePackage %>.domain.exception;
+
+import <%= basePackage %>.domain.exception.enums.ExceptionTypeEnum;
+
+import java.util.UUID;
+
+public class UnprocessableContentException extends BaseException {
+	public UnprocessableContentException(String internalCode, String message, String friendlyMessage, UUID internalTraceId, ExceptionTypeEnum type) {
+		super(422, internalCode, message, friendlyMessage, internalTraceId, type);
+	}
+}

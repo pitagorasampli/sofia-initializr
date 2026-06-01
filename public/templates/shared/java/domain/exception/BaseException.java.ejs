@@ -1,0 +1,45 @@
+package <%= basePackage %>.domain.exception;
+
+import <%= basePackage %>.domain.exception.enums.ExceptionTypeEnum;
+import <%= basePackage %>.domain.port.output.MessageResolverPort;
+
+import java.util.Locale;
+import java.util.UUID;
+
+import static <%= basePackage %>.domain.exception.enums.InternalCodeEnum.BAD_REQUEST;
+
+public class BaseException extends RuntimeException {
+	private final int httpStatus;
+	private final String internalCode;
+	private final String message;
+	private final String friendlyMessage;
+	private final UUID internalTraceId;
+	private final ExceptionTypeEnum type;
+
+	public BaseException(MessageResolverPort messageResolver) {
+		this.httpStatus = 400;
+		this.internalCode = BAD_REQUEST.code();
+		this.message = messageResolver.getMessage(BAD_REQUEST.messageKey(), Locale.getDefault());
+		this.friendlyMessage = messageResolver.getMessage(BAD_REQUEST.messageKey() + ".friendly", Locale.getDefault());
+		this.internalTraceId = UUID.randomUUID();
+		this.type = ExceptionTypeEnum.APPLICATION;
+		super.initCause(new RuntimeException(message));
+	}
+
+	public BaseException(int httpStatus, String internalCode, String message, String friendlyMessage, UUID internalTraceId, ExceptionTypeEnum type) {
+		super(message);
+		this.httpStatus = httpStatus;
+		this.internalCode = internalCode;
+		this.message = message;
+		this.friendlyMessage = friendlyMessage;
+		this.internalTraceId = internalTraceId;
+		this.type = type;
+	}
+
+	public int httpStatus() { return httpStatus; }
+	public String internalCode() { return internalCode; }
+	public ExceptionTypeEnum type() { return type; }
+	public UUID internalTraceId() { return internalTraceId; }
+	public String friendlyMessage() { return friendlyMessage; }
+	public String message() { return message; }
+}

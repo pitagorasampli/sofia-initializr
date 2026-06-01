@@ -1,0 +1,19 @@
+package <%= basePackage %>.domain.exception;
+
+public final class InternalCodeParser {
+	private InternalCodeParser() {}
+
+	public static InternalCode parse(String code) {
+		if (code == null) throw new IllegalArgumentException("Internal code must not be null");
+		String[] segments = code.split("\\.", -1);
+		if (segments.length != 5) throw new IllegalArgumentException("Internal code must have exactly 5 dot-separated segments, got: " + segments.length);
+		String productName = segments[0], projectName = segments[1], flow = segments[2], exceptionType = segments[3], sequential = segments[4];
+		if (!productName.matches("^[A-Z]+$")) throw new IllegalArgumentException("Invalid product name: " + productName);
+		if (!projectName.matches("^[A-Z]+$")) throw new IllegalArgumentException("Invalid project name: " + projectName);
+		return new InternalCode(productName, projectName, flow, exceptionType, sequential);
+	}
+
+	public static String format(InternalCode internalCode) {
+		return String.join(".", internalCode.productName(), internalCode.projectName(), internalCode.flow(), internalCode.exceptionType(), internalCode.sequential());
+	}
+}

@@ -1,0 +1,36 @@
+server:
+  port: 8081
+<% if (hasMysql || hasMongodb || hasRedis) { %>
+
+spring:
+<% if (hasMysql) { %>
+  datasource:
+    url: jdbc:mysql://localhost:3306/<%= serviceName %>
+    username: root
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+<% } %>
+<% if (hasMongodb) { %>
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017
+      database: <%= serviceName %>
+<% } %>
+<% if (hasRedis) { %>
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+<% } %>
+<% } %>
+
+logging:
+  level:
+    root: INFO
+    <%= basePackage %>: DEBUG
+
+app:
+  profile: dev
+  squad-name: ${APP_SQUAD_NAME:plataforma}

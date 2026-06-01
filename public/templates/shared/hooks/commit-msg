@@ -1,0 +1,12 @@
+#!/bin/sh
+# Commit-msg hook: enforce Conventional Commits
+MSG=$(cat "$1")
+PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .{1,}"
+
+if ! echo "$MSG" | grep -qE "$PATTERN"; then
+  echo "❌ Commit message does not follow Conventional Commits."
+  echo "   Format: <type>(<scope>): <description>"
+  echo "   Types: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+  echo "   Example: feat(auth): add bearer token validation"
+  exit 1
+fi

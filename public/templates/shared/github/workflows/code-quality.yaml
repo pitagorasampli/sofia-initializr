@@ -1,0 +1,50 @@
+name: Code Quality
+
+on:
+  push:
+    branches:
+      - feature/*
+      - hotfix/*
+      - bugfix/*
+      - fix/*
+      - release/*
+      - revert/*
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  issues: write
+
+jobs:
+  codeartifact-vars:
+    name: CodeArtifact Variables
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/codeartifact-vars.yaml@main
+    secrets:
+      ARN_ROLE: ${{ secrets.OICD_AMPLI }}
+    with:
+      BRANCH_NAME: ${{ github.ref_name }}
+      PACKAGE_MANAGER: 'maven'
+      IS_LEGACY: false
+
+  code-quality:
+    name: Code Quality
+    needs:
+      - codeartifact-vars
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/mvn_ci_v2.yaml@main
+    secrets:
+      ARN_ROLE: ${{ secrets.OICD_AMPLI }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      CODEARTIFACT_AUTH_TOKEN: ${{ needs.codeartifact-vars.outputs.CODEARTIFACT_AUTH_TOKEN }}
+      SCAN_API_TOKEN: ${{ secrets.SCAN_API_TOKEN }}
+      SCAN_API_ID: ${{ secrets.SCAN_API_ID }}
+      SCAN_API_KEY: ${{ secrets.SCAN_API_KEY }}
+    with:
+      CODEARTIFACT_REPO_URL: ${{ needs.codeartifact-vars.outputs.CODEARTIFACT_REPO_URL }}
+      BRANCH_NAME: ${{ github.ref_name }}
+      MAVEN_CHANGELIST: '-RC'

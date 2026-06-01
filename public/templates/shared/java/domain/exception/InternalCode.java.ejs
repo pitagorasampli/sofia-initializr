@@ -1,0 +1,16 @@
+package <%= basePackage %>.domain.exception;
+
+import java.util.Objects;
+
+public record InternalCode(String productName, String projectName, String flow, String exceptionType, String sequential) {
+	public InternalCode {
+		Objects.requireNonNull(productName, "productName must not be null");
+		Objects.requireNonNull(projectName, "projectName must not be null");
+		Objects.requireNonNull(flow, "flow must not be null");
+		Objects.requireNonNull(exceptionType, "exceptionType must not be null");
+		Objects.requireNonNull(sequential, "sequential must not be null");
+		if (!flow.matches("^[A-Z]{2,5}$")) throw new IllegalArgumentException("flow must be 2-5 uppercase letters");
+		if (!exceptionType.matches("^(BUS|INT|APP)$")) throw new IllegalArgumentException("exceptionType must be BUS, INT, or APP");
+		if (!sequential.matches("^\\d{4}$")) throw new IllegalArgumentException("sequential must be a 4-digit zero-padded number");
+	}
+}

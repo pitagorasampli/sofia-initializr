@@ -1,0 +1,23 @@
+module "sns" {
+    for_each   = local.sns
+    source     = "./sns/"
+    account_id = lookup(local.account_id, terraform.workspace, local.account_id["default"])
+    sns_name   = "${terraform.workspace}-${each.value}"
+}
+
+module "sqs" {
+    for_each                      = local.queues
+    depends_on                    = [module.sns]
+    source                        = "./sqs/"
+    account_id                    = lookup(local.account_id, terraform.workspace, local.account_id["default"])
+    name                          = "${terraform.workspace}-${each.value.name}"
+    fifo                          = each.value.fifo
+    content_based_deduplication   = lookup(each.value, "content_based_deduplication", null)
+    topic_subscription            = each.value.topic_subscription
+    max-receive-count             = each.value.max-receive-count
+    message_retention_seconds     = lookup(each.value, "message_retention_seconds", "1209600")
+    dlq_message_retention_seconds = lookup(each.value, "dlq_message_retention_seconds", "1209600")
+    visibility_timeout_seconds    = each.value.visibility_timeout_seconds
+    protocol                      = each.value.protocol
+    delay_seconds                 = try(each.value.delay_seconds, 0)
+}

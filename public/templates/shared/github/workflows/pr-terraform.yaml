@@ -1,0 +1,28 @@
+name: PR Builder Terraform
+
+on:
+  pull_request:
+    branches:
+      - main
+      - stg
+      - hml
+      - qa
+      - dev
+    paths:
+      - 'terraform/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  terraform_plan:
+    name: Terraform Plan
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/terraform_plan_v2.yaml@main
+    secrets:
+      AMPLI_OIDC_NONPROD: ${{ secrets.AMPLI_OIDC_NONPROD }}
+      AMPLI_OIDC_PROD: ${{ secrets.AMPLI_OIDC_PROD }}
+      AMPLI_OIDC_QA: ${{ secrets.AMPLI_OIDC_QA }}
+    with:
+      workspace-mapping: ${{ github.event.pull_request.base.ref }}

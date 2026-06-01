@@ -1,0 +1,14 @@
+package <%= basePackage %>.domain.port.output;
+
+import <%= basePackage %>.domain.exception.*;
+import <%= basePackage %>.domain.exception.enums.ExceptionTypeEnum;
+import <%= basePackage %>.domain.exception.enums.InternalCodeEnum;
+
+public interface ExceptionFactoryPort {
+	BadRequestException badRequest(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params);
+	UnauthorizedException unauthorized(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params);
+	ForbiddenException forbidden(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params);
+	NotFoundException notFound(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params);
+	ConflictException conflict(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params);
+	UnprocessableContentException unprocessableContent(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params);
+}

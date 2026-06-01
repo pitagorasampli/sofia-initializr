@@ -1,0 +1,21 @@
+package <%= basePackage %>.infrastructure.adapters.input.messaging;
+
+import io.quarkus.arc.profile.UnlessBuildProfile;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.ws.rs.Produces;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
+
+@ApplicationScoped
+@UnlessBuildProfile("dev")
+public class AwsSqsClient {
+
+    @Produces
+    public SqsClient sqsClient() {
+        return SqsClient.builder()
+            .region(Region.US_EAST_1)
+            .credentialsProvider(StsWebIdentityTokenFileCredentialsProvider.builder().build())
+            .build();
+    }
+}

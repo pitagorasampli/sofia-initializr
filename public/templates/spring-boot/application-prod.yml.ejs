@@ -1,0 +1,38 @@
+server:
+  port: 8080
+<% if (hasMysql || hasMongodb || hasRedis) { %>
+
+spring:
+<% if (hasMysql) { %>
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: none
+<% } %>
+<% if (hasMongodb) { %>
+  data:
+    mongodb:
+      uri: ${MONGODB_URL}
+      database: ${MONGODB_DATABASE}
+<% } %>
+<% if (hasRedis) { %>
+  data:
+    redis:
+      masterreplica:
+        nodes:
+          - \${REDIS_MASTER_URL}:\${REDIS_PORT}
+          - \${REDIS_REPLICA_URL}:\${REDIS_PORT}
+<% } %>
+<% } %>
+
+logging:
+  level:
+    root: WARN
+    <%= basePackage %>: INFO
+
+app:
+  profile: prod
+  squad-name: ${APP_SQUAD_NAME:plataforma}

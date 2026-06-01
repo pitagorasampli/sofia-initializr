@@ -1,0 +1,84 @@
+quarkus:
+  application:
+    name: <%= serviceName %>
+  log:
+    level: INFO
+    console:
+      enabled: true
+      json:
+        enabled: true
+        print-details: true
+        additional-field:
+          app:
+            value: ${quarkus.application.name}
+          env:
+            value: ${APP_PROFILE:dev}
+          facility:
+            value: java-quarkus
+  http:
+    root-path: /api
+    port: 8080
+  jackson:
+    serialization-inclusion: non_null
+    write-dates-as-timestamps: false
+<% if (hasSqs) { %>
+  sts:
+    sync-client:
+      type: apache
+  sqs:
+    sync-client:
+      type: apache
+<% } %>
+<% if (hasRestClients) { %>
+  rest-client:
+    # Configure your REST clients here
+    # example-service:
+    #   url: ${EXAMPLE_SERVICE_URL}
+<% } %>
+<% if (hasRedis) { %>
+  redis:
+    client-type: replication
+    topology: static
+    hosts: redis://${REDIS_MASTER_URL}:${REDIS_PORT:6379},redis://${REDIS_REPLICAS_URL}:${REDIS_PORT:6379}
+    replicas: ${REDIS_REPLICAS_STRATEGY:share}
+    timeout: 5s
+<% } %>
+<% if (hasMysql) { %>
+  datasource:
+    db-kind: mysql
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    jdbc:
+      url: ${DB_URL}
+  hibernate-orm:
+    database:
+      generation: none
+<% } %>
+<% if (hasMongodb) { %>
+  mongodb:
+    connection-string: ${MONGODB_URL}
+    database: ${MONGODB_DATABASE}
+<% } %>
+  devservices:
+    enabled: false
+
+<% if (hasSqs) { %>
+aws:
+  region: ${AWS_REGION:us-east-1}
+  account-id: ${AWS_ACCOUNT_ID:000000000000}
+<% } %>
+
+app:
+  profile: ${APP_PROFILE:dev}
+  squad-name: ${APP_SQUAD_NAME:plataforma}
+
+sofia:
+  http:
+    auth:
+      basic: ${SOFIA_AUTH_BASIC_TOKEN}
+<% if (hasFeatureFlags) { %>
+  feature:
+    # Add your feature flags here
+    # example:
+    #   enabled: ${FEATURE_EXAMPLE_ENABLED:true}
+<% } %>

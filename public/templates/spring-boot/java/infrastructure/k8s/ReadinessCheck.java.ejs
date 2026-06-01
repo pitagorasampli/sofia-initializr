@@ -1,0 +1,71 @@
+package <%= basePackage %>.infrastructure.k8s;
+
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.boot.health.contributor.HealthIndicator;
+import org.springframework.stereotype.Component;
+<% if (hasMysql) { %>
+import javax.sql.DataSource;
+import java.sql.Connection;
+<% } %>
+<% if (hasMongodb) { %>
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.bson.Document;
+<% } %>
+<% if (hasRedis) { %>
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+<% } %>
+
+@Component("readinessCheck")
+public class ReadinessCheck implements HealthIndicator {
+<% if (hasMysql) { %>
+	private final DataSource dataSource;
+<% } %>
+<% if (hasMongodb) { %>
+	private final MongoTemplate mongoTemplate;
+<% } %>
+<% if (hasRedis) { %>
+	private final RedisConnectionFactory redisConnectionFactory;
+<% } %>
+
+	public ReadinessCheck(<%= [hasMysql ? 'DataSource dataSource' : '', hasMongodb ? 'MongoTemplate mongoTemplate' : '', hasRedis ? 'RedisConnectionFactory redisConnectionFactory' : ''].filter(Boolean).join(', ') %>) {
+<% if (hasMysql) { %>
+		this.dataSource = dataSource;
+<% } %>
+<% if (hasMongodb) { %>
+		this.mongoTemplate = mongoTemplate;
+<% } %>
+<% if (hasRedis) { %>
+		this.redisConnectionFactory = redisConnectionFactory;
+<% } %>
+	}
+
+	@Override
+	public Health health() {
+		Health.Builder builder = Health.up();
+<% if (hasMysql) { %>
+		try (Connection conn = dataSource.getConnection()) {
+			if (!conn.isValid(2)) return builder.down().withDetail("mysql", "invalid connection").build();
+			builder.withDetail("mysql", "UP");
+		} catch (Exception e) {
+			return builder.down().withDetail("mysql", e.getMessage()).build();
+		}
+<% } %>
+<% if (hasMongodb) { %>
+		try {
+			mongoTemplate.executeCommand(new Document("ping", 1));
+			builder.withDetail("mongodb", "UP");
+		} catch (Exception e) {
+			return builder.down().withDetail("mongodb", e.getMessage()).build();
+		}
+<% } %>
+<% if (hasRedis) { %>
+		try {
+			redisConnectionFactory.getConnection().ping();
+			builder.withDetail("redis", "UP");
+		} catch (Exception e) {
+			return builder.down().withDetail("redis", e.getMessage()).build();
+		}
+<% } %>
+		return builder.build();
+	}
+}

@@ -1,0 +1,100 @@
+package <%= basePackage %>.infrastructure.exception.handler;
+
+import <%= basePackage %>.domain.exception.BaseException;
+import <%= basePackage %>.domain.exception.InternalCodeNormalizer;
+import <%= basePackage %>.domain.exception.enums.ExceptionTypeEnum;
+import <%= basePackage %>.infrastructure.i18n.ExceptionMessages;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Tracer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.support.WebExchangeBindException;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+	private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+	private final Counter genericExceptionCounter;
+	private final Tracer tracer;
+	private final String appName;
+	private final String appProfile;
+	private final ExceptionMessages exceptionMessages;
+
+	public GlobalExceptionHandler(MeterRegistry meterRegistry, Tracer tracer, @Value("${spring.application.name}") String appName, @Value("${app.profile}") String appProfile, ExceptionMessages exceptionMessages) {
+		this.genericExceptionCounter = Counter.builder("generic_exception_counter").description("Number of generic exceptions").register(meterRegistry);
+		this.tracer = tracer;
+		this.appName = appName;
+		this.appProfile = appProfile;
+		this.exceptionMessages = exceptionMessages;
+	}
+
+	@ExceptionHandler(BaseException.class)
+	public ResponseEntity<Map<String, Object>> handleBaseException(BaseException ex) {
+		String correlationId = getCorrelationId();
+
+		GelfLogMessage logMessage = GelfLogMessage.of(GlobalExceptionHandler.class, "handleBaseException", ex.getMessage(), null, correlationId, appName, appProfile);
+		logger.warn("{}", logMessage);
+
+		return ResponseEntity.status(ex.httpStatus()).body(Map.of(
+			"internalCode", ex.internalCode(),
+			"friendlyMessage", ex.friendlyMessage(),
+			"internalTraceId", ex.internalTraceId(),
+			"type", ex.type()
+		));
+	}
+
+	@ExceptionHandler(WebExchangeBindException.class)
+	public ResponseEntity<Map<String, Object>> handleValidationException(WebExchangeBindException ex) {
+		String correlationId = getCorrelationId();
+
+		List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
+			.map(e -> Map.of("field", e.getField(), "message", e.getDefaultMessage() != null ? e.getDefaultMessage() : "invalid"))
+			.toList();
+
+		GelfLogMessage logMessage = GelfLogMessage.of(GlobalExceptionHandler.class, "handleValidationException", "Validation failed", errors.toString(), correlationId, appName, appProfile);
+		logger.warn("{}", logMessage);
+
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+			"internalCode", InternalCodeNormalizer.FALLBACK_INTERNAL_CODE,
+			"friendlyMessage", "Validation failed",
+			"errors", errors,
+			"internalTraceId", UUID.randomUUID(),
+			"type", ExceptionTypeEnum.BUSINESS
+		));
+	}
+
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+		genericExceptionCounter.increment();
+		String correlationId = getCorrelationId();
+
+		StringWriter sw = new StringWriter();
+		ex.printStackTrace(new PrintWriter(sw));
+
+		GelfLogMessage logMessage = GelfLogMessage.of(GlobalExceptionHandler.class, "handleGenericException", exceptionMessages.getMessage("default.internal-server-error", Locale.getDefault()), sw.toString(), correlationId, appName, appProfile);
+		logger.error("{}", logMessage);
+
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+			"internalCode", InternalCodeNormalizer.FALLBACK_INTERNAL_CODE,
+			"friendlyMessage", exceptionMessages.getMessage("default.internal-server-error.friendly", Locale.getDefault()),
+			"internalTraceId", UUID.randomUUID(),
+			"type", ExceptionTypeEnum.APPLICATION
+		));
+	}
+
+	private String getCorrelationId() {
+		return tracer.currentSpan() != null ? tracer.currentSpan().context().traceId() : "no-trace-id";
+	}
+}

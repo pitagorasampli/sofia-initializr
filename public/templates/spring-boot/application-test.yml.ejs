@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: <%= serviceName %>-test
+
+logging:
+  level:
+    root: WARN
+    <%= basePackage %>: DEBUG
+
+app:
+  profile: test
+  squad-name: test
+
+sofia:
+  http:
+    auth:
+      basic: dGVzdC10b2tlbg==

@@ -1,0 +1,35 @@
+quarkus:
+  log:
+    level: INFO
+<% if (hasRedis) { %>
+  redis:
+    client-type: replication
+    topology: static
+    hosts: redis://${REDIS_MASTER_URL}:${REDIS_PORT:6379},redis://${REDIS_REPLICAS_URL}:${REDIS_PORT:6379}
+    replicas: ${REDIS_REPLICAS_STRATEGY:share}
+    timeout: 5s
+    devservices:
+      enabled: false
+<% } %>
+<% if (hasMysql) { %>
+  datasource:
+    db-kind: mysql
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    jdbc:
+      url: ${DB_URL}
+  hibernate-orm:
+    database:
+      generation: none
+<% } %>
+<% if (hasMongodb) { %>
+  mongodb:
+    connection-string: ${MONGODB_URL}
+    database: ${MONGODB_DATABASE}
+<% } %>
+  devservices:
+    enabled: false
+
+app:
+  profile: stg
+  squad-name: ${APP_SQUAD_NAME:plataforma}

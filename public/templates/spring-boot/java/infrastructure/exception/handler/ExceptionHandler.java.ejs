@@ -1,0 +1,55 @@
+package <%= basePackage %>.infrastructure.exception.handler;
+
+import <%= basePackage %>.domain.exception.BaseException;
+import <%= basePackage %>.domain.exception.InternalCodeNormalizer;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Tracer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Map;
+
+@RestControllerAdvice
+public class BaseExceptionHandler {
+	private static final Logger logger = LoggerFactory.getLogger(BaseExceptionHandler.class);
+	private final Counter businessExceptionCounter;
+	private final Tracer tracer;
+	private final String appName;
+	private final String appProfile;
+
+	public BaseExceptionHandler(MeterRegistry meterRegistry, Tracer tracer, @Value("${spring.application.name}") String appName, @Value("${app.profile}") String appProfile) {
+		this.businessExceptionCounter = Counter.builder("business_exception_counter").description("Number of business exceptions").register(meterRegistry);
+		this.tracer = tracer;
+		this.appName = appName;
+		this.appProfile = appProfile;
+	}
+
+	@ExceptionHandler(BaseException.class)
+	public ResponseEntity<Map<String, Object>> handleBaseException(BaseException ex) {
+		String normalizedCode = InternalCodeNormalizer.normalizeOrFallback(ex.internalCode());
+		businessExceptionCounter.increment();
+
+		String correlationId = tracer.currentSpan() != null ? tracer.currentSpan().context().traceId() : "no-trace-id";
+
+		StringWriter sw = new StringWriter();
+		ex.printStackTrace(new PrintWriter(sw));
+
+		String fullMessage = ex.getClass().getSimpleName() + " | internalCode=" + normalizedCode + " | httpStatus=" + ex.httpStatus();
+		GelfLogMessage logMessage = GelfLogMessage.of(BaseExceptionHandler.class, "handleBaseException", fullMessage, sw.toString(), correlationId, appName, appProfile);
+		logger.error("{}", logMessage);
+
+		return ResponseEntity.status(ex.httpStatus()).body(Map.of(
+			"internalCode", normalizedCode,
+			"friendlyMessage", ex.friendlyMessage(),
+			"internalTraceId", ex.internalTraceId(),
+			"type", ex.type()
+		));
+	}
+}

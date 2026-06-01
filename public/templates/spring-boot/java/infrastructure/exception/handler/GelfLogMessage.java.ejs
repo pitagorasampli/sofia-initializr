@@ -1,0 +1,23 @@
+package <%= basePackage %>.infrastructure.exception.handler;
+
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+
+public record GelfLogMessage(String severity, String sourceClassName, int sourceLineNumber, String sourceMethodName, String sourceSimpleClassName, String stacktrace, String thread, String time, String app, String env, String facility, String fullMessage, String correlationId) {
+	private static final DateTimeFormatter UTC_FORMATTER = DateTimeFormatter.ISO_INSTANT;
+
+	public static GelfLogMessage of(Class<?> source, String methodName, String fullMessage, String stacktrace, String correlationId, String app, String env) {
+		return new GelfLogMessage("ERROR", source.getName(), extractLineNumber(stacktrace), methodName, source.getSimpleName(), stacktrace, Thread.currentThread().getName(), Instant.now().atOffset(ZoneOffset.UTC).format(UTC_FORMATTER), app, env, "java-spring", fullMessage, correlationId);
+	}
+
+	private static int extractLineNumber(String stacktrace) {
+		if (stacktrace == null || stacktrace.isBlank()) return 0;
+		int parenOpen = stacktrace.indexOf(':');
+		if (parenOpen == -1) return 0;
+		int start = parenOpen + 1, end = start;
+		while (end < stacktrace.length() && Character.isDigit(stacktrace.charAt(end))) end++;
+		if (end == start) return 0;
+		try { return Integer.parseInt(stacktrace.substring(start, end)); } catch (NumberFormatException e) { return 0; }
+	}
+}

@@ -1,0 +1,37 @@
+package <%= basePackage %>.infrastructure.adapters.input.messaging;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@ApplicationScoped
+public class QueueUrlBuilder {
+
+    private static final Logger log = LoggerFactory.getLogger(QueueUrlBuilder.class);
+
+    @ConfigProperty(name = "aws.region")
+    String region;
+
+    @ConfigProperty(name = "aws.account-id")
+    String accountId;
+
+    @ConfigProperty(name = "app.profile")
+    String profile;
+
+    @ConfigProperty(name = "app.squad-name")
+    String squadName;
+
+    public String build(String queueBaseName) {
+        String queueName = buildQueueName(queueBaseName);
+        log.debug("Building SQS queue URL for environment: {}, queue name: {}", profile, queueName);
+        return String.format("https://sqs.%s.amazonaws.com/%s/%s", region, accountId, queueName);
+    }
+
+    private String buildQueueName(String queueBaseName) {
+        String prefix = profile.toLowerCase();
+        boolean isProdOrQa = "prod".equals(prefix) || "qa".equals(prefix);
+        String infix = isProdOrQa ? "" : squadName + "-";
+        return prefix + "-" + infix + queueBaseName;
+    }
+}

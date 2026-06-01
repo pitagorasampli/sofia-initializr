@@ -1,0 +1,66 @@
+name: Deploy to NonProduction Environments
+
+on:
+  push:
+    branches:
+      - dev
+      - hml
+      - qa
+      - stg
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  issues: write
+
+jobs:
+  codeartifact-vars:
+    name: CodeArtifact Variables
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/codeartifact-vars.yaml@main
+    secrets:
+      ARN_ROLE: ${{ github.ref_name == 'qa' && secrets.OIDC_SOFIA_QA || secrets.OICD_AMPLI }}
+    with:
+      BRANCH_NAME: ${{ github.ref_name }}
+      PACKAGE_MANAGER: 'maven'
+      IS_LEGACY: false
+
+  tags-vars:
+    name: Tags Variables
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/image-tags-vars-v2.yaml@main
+    with:
+      BRANCH_NAME: ${{ github.ref_name }}
+      BB_NUMBER: ${{ github.run_number }}
+
+  deploy:
+    name: Deploy to Non-Prod Environment
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/mvn_cd.yaml@main
+    needs:
+      - codeartifact-vars
+      - tags-vars
+    secrets:
+      CODEARTIFACT_AUTH_TOKEN: ${{ needs.codeartifact-vars.outputs.CODEARTIFACT_AUTH_TOKEN }}
+      ECR_URL: ${{ github.ref_name == 'qa' && secrets.ECR_URL_SOFIA_QA || secrets.ECR_URL }}
+      ARN_ROLE: ${{ github.ref_name == 'qa' && secrets.OIDC_SOFIA_QA || secrets.OICD_AMPLI }}
+    with:
+      CODEARTIFACT_REPO_URL: ${{ needs.codeartifact-vars.outputs.CODEARTIFACT_REPO_URL }}
+      PROFILE_ACTIVE: ${{ github.ref_name }}
+      SERVICE_NAME: ${{ github.event.repository.name }}
+      BB_NUMBER: ${{ github.run_number }}
+      TAG: ${{ needs.tags-vars.outputs.TAG }}
+      SHORT_TAG: ${{ needs.tags-vars.outputs.SHORT_TAG }}
+      MAVEN_CHANGELIST: '-RC'
+
+  update-image-tag:
+    name: Update Service Image Tag
+    needs:
+      - deploy
+      - tags-vars
+    uses: pitagorasampli/github-workflow-catalog/.github/workflows/sofia-app-token-management.yaml@main
+    secrets:
+      ECR_URL: ${{ github.ref_name == 'qa' && secrets.ECR_URL_SOFIA_QA || secrets.ECR_URL }}
+      APP_CLIENT_ID: ${{ secrets.APP_TOKEN_MGMT_CLIENT_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_TOKEN_MGMT_PRIVATE_KEY }}
+    with:
+      TAG: ${{ needs.tags-vars.outputs.TAG }}
+      SHORT_TAG: ${{ needs.tags-vars.outputs.SHORT_TAG }}

@@ -1,0 +1,30 @@
+locals {
+  provider_env_roles = {
+    production = null
+    qa         = "arn:aws:iam::180294183837:role/github-actions-oidc-terraform-role"
+    default    = "arn:aws:iam::486300737953:role/OrganizationAccountAccessRole"
+  }
+
+  account_id = {
+    production = "976269514007"
+    qa         = "180294183837"
+    default    = "486300737953"
+  }
+
+  ## block to describe SNS names.
+  sns = {
+  }
+
+  ## block to describe SQS
+  queues = {
+    # Example:
+    # 1 = {
+    #   name = "<%= serviceName %>-example-queue"
+    #   fifo = false
+    #   topic_subscription = ""
+    #   max-receive-count = 1000
+    #   visibility_timeout_seconds = 90
+    #   protocol = "sqs"
+    # }
+  }
+}

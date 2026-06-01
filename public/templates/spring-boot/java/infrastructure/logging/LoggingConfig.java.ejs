@@ -1,0 +1,62 @@
+package <%= basePackage %>.infrastructure.logging;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.ConsoleAppender;
+import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
+import net.logstash.logback.encoder.LogstashEncoder;
+import net.logstash.logback.fieldnames.LogstashFieldNames;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+
+import jakarta.annotation.PostConstruct;
+
+@Configuration
+public class LoggingConfig {
+
+    @Value("${spring.application.name}")
+    private String appName;
+
+    @Value("${app.profile}")
+    private String appProfile;
+
+    @PostConstruct
+    public void configure() {
+        var context = (LoggerContext) LoggerFactory.getILoggerFactory();
+        var rootLogger = context.getLogger(Logger.ROOT_LOGGER_NAME);
+        rootLogger.detachAndStopAllAppenders();
+
+        var appender = new ConsoleAppender<ILoggingEvent>();
+        appender.setContext(context);
+        appender.setName("CONSOLE");
+
+        if ("dev".equals(appProfile)) {
+            var encoder = new PatternLayoutEncoder();
+            encoder.setContext(context);
+            encoder.setPattern("%d{HH:mm:ss.SSS} %highlight(%-5level) [%thread] %cyan(%logger{36}) - %msg%n");
+            encoder.start();
+            appender.setEncoder(encoder);
+        } else {
+            var encoder = new LogstashEncoder();
+            encoder.setContext(context);
+
+            var fieldNames = new LogstashFieldNames();
+            fieldNames.setTimestamp("timestamp");
+            fieldNames.setLevel("level");
+            fieldNames.setLogger("logger");
+            fieldNames.setThread("thread");
+            fieldNames.setMessage("msg");
+            fieldNames.setStackTrace("exception");
+            encoder.setFieldNames(fieldNames);
+
+            encoder.setCustomFields("{\"app\":\"" + appName + "\",\"env\":\"" + appProfile + "\",\"facility\":\"java-spring\"}");
+            encoder.start();
+            appender.setEncoder(encoder);
+        }
+
+        appender.start();
+        rootLogger.addAppender(appender);
+    }
+}

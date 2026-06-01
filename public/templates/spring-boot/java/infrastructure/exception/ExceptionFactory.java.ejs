@@ -1,0 +1,60 @@
+package <%= basePackage %>.infrastructure.exception;
+
+import <%= basePackage %>.domain.exception.*;
+import <%= basePackage %>.domain.exception.enums.ExceptionTypeEnum;
+import <%= basePackage %>.domain.exception.enums.InternalCodeEnum;
+import <%= basePackage %>.domain.port.output.ExceptionFactoryPort;
+import <%= basePackage %>.infrastructure.i18n.ExceptionMessages;
+import <%= basePackage %>.infrastructure.web.context.RequestContext;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+@Component
+public class ExceptionFactory implements ExceptionFactoryPort {
+	private final ExceptionMessages exceptionMessages;
+	private final RequestContext requestContext;
+
+	public ExceptionFactory(ExceptionMessages exceptionMessages, RequestContext requestContext) {
+		this.exceptionMessages = exceptionMessages;
+		this.requestContext = requestContext;
+	}
+
+	@Override
+	public BadRequestException badRequest(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params) {
+		return new BadRequestException(internalCode.code(), resolve(internalCode, params), resolveFriendly(internalCode, params), UUID.randomUUID(), type);
+	}
+
+	@Override
+	public UnauthorizedException unauthorized(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params) {
+		return new UnauthorizedException(internalCode.code(), resolve(internalCode, params), resolveFriendly(internalCode, params), UUID.randomUUID(), type);
+	}
+
+	@Override
+	public ForbiddenException forbidden(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params) {
+		return new ForbiddenException(internalCode.code(), resolve(internalCode, params), resolveFriendly(internalCode, params), UUID.randomUUID(), type);
+	}
+
+	@Override
+	public NotFoundException notFound(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params) {
+		return new NotFoundException(internalCode.code(), resolve(internalCode, params), resolveFriendly(internalCode, params), UUID.randomUUID(), type);
+	}
+
+	@Override
+	public ConflictException conflict(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params) {
+		return new ConflictException(internalCode.code(), resolve(internalCode, params), resolveFriendly(internalCode, params), UUID.randomUUID(), type);
+	}
+
+	@Override
+	public UnprocessableContentException unprocessableContent(InternalCodeEnum internalCode, ExceptionTypeEnum type, Object... params) {
+		return new UnprocessableContentException(internalCode.code(), resolve(internalCode, params), resolveFriendly(internalCode, params), UUID.randomUUID(), type);
+	}
+
+	private String resolve(InternalCodeEnum code, Object... params) {
+		return exceptionMessages.getMessage(code.messageKey(), requestContext.getLocale(), params);
+	}
+
+	private String resolveFriendly(InternalCodeEnum code, Object... params) {
+		return exceptionMessages.getMessage(code.messageKey() + ".friendly", requestContext.getLocale(), params);
+	}
+}

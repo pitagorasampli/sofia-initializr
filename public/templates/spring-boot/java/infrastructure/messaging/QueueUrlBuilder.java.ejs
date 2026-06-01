@@ -1,0 +1,41 @@
+package <%= basePackage %>.infrastructure.adapters.input.messaging;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class QueueUrlBuilder {
+
+    private static final Logger log = LoggerFactory.getLogger(QueueUrlBuilder.class);
+
+    @Value("${cloud.aws.region.static}")
+    private String region;
+
+    @Value("${aws.account-id:000000000000}")
+    private String accountId;
+
+    @Value("${app.profile}")
+    private String profile;
+
+    @Value("${app.squad-name}")
+    private String squadName;
+
+    public String build(String queueBaseName) {
+        String queueName = buildQueueName(queueBaseName);
+        log.debug("Building SQS queue URL for environment: {}, queue name: {}", profile, queueName);
+        return String.format("https://sqs.%s.amazonaws.com/%s/%s", region, accountId, queueName);
+    }
+
+    public String getQueueName(String queueBaseName) {
+        return buildQueueName(queueBaseName);
+    }
+
+    private String buildQueueName(String queueBaseName) {
+        String prefix = profile.toLowerCase();
+        boolean isProdOrQa = "prod".equals(prefix) || "qa".equals(prefix);
+        String infix = isProdOrQa ? "" : squadName + "-";
+        return prefix + "-" + infix + queueBaseName;
+    }
+}

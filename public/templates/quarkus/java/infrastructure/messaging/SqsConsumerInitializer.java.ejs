@@ -1,0 +1,36 @@
+package <%= basePackage %>.infrastructure.adapters.input.messaging;
+
+import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.runtime.StartupEvent;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+@ApplicationScoped
+public class SqsConsumerInitializer {
+
+    private static final Logger log = LoggerFactory.getLogger(SqsConsumerInitializer.class);
+    private ExecutorService executor;
+
+    // TODO: inject your consumers here and add feature flag configs
+    // @ConfigProperty(name = "sofia.feature.sqs.example.enabled", defaultValue = "true")
+    // boolean exampleEnabled;
+
+    void onStart(@Observes StartupEvent event) {
+        // TODO: configure consumer count and submit consumers
+        // executor = Executors.newFixedThreadPool(consumerCount);
+        // if (exampleEnabled) { executor.submit(exampleConsumer); }
+        log.info("SQS consumers initialized");
+    }
+
+    void onShutdown(@Observes ShutdownEvent event) {
+        if (executor != null) {
+            executor.shutdownNow();
+            log.info("SQS consumers stopped");
+        }
+    }
+}

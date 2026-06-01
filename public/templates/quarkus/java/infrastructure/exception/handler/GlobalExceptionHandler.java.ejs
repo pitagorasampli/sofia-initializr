@@ -1,0 +1,110 @@
+package <%= basePackage %>.infrastructure.exception.handler;
+
+import <%= basePackage %>.domain.exception.BaseException;
+import <%= basePackage %>.domain.exception.InternalCodeNormalizer;
+import <%= basePackage %>.domain.exception.enums.ExceptionTypeEnum;
+import <%= basePackage %>.infrastructure.i18n.ExceptionMessages;
+import <%= basePackage %>.infrastructure.web.context.RequestContext;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.opentelemetry.api.trace.Span;
+import jakarta.inject.Inject;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@Provider
+public class GlobalExceptionHandler implements ExceptionMapper<Exception> {
+	private static final Logger logger = Logger.getLogger(GlobalExceptionHandler.class);
+	private final Counter genericExceptionsCounter;
+	private final String appName;
+	private final String appProfile;
+	private final ExceptionMessages exceptionMessages;
+	private final RequestContext requestContext;
+
+	@Inject
+	public GlobalExceptionHandler(MeterRegistry meterRegistry, @ConfigProperty(name = "quarkus.application.name") String appName, @ConfigProperty(name = "app.profile") String appProfile, ExceptionMessages exceptionMessages, RequestContext requestContext) {
+		this.genericExceptionsCounter = Counter.builder("generic_exception_counter").description("Number of generic exceptions").register(meterRegistry);
+		this.appName = appName;
+		this.appProfile = appProfile;
+		this.exceptionMessages = exceptionMessages;
+		this.requestContext = requestContext;
+	}
+
+	@Override
+	public Response toResponse(Exception ex) {
+		if (ex instanceof BaseException baseEx) {
+			return handleBaseException(baseEx);
+		}
+		if (ex instanceof ConstraintViolationException cve) {
+			return handleValidationException(cve);
+		}
+		return handleGenericException(ex);
+	}
+
+	private Response handleBaseException(BaseException ex) {
+		String correlationId = getCorrelationId();
+
+		GelfLogMessage logMessage = GelfLogMessage.of(GlobalExceptionHandler.class, "handleBaseException", ex.getMessage(), null, correlationId, appName, appProfile);
+		logger.warn(logMessage);
+
+		return Response.status(ex.httpStatus()).entity(Map.of(
+			"internalCode", ex.internalCode(),
+			"friendlyMessage", ex.friendlyMessage(),
+			"internalTraceId", UUID.randomUUID(),
+			"type", ex.type()
+		)).build();
+	}
+
+	private Response handleValidationException(ConstraintViolationException ex) {
+		String correlationId = getCorrelationId();
+
+		List<Map<String, String>> errors = ex.getConstraintViolations().stream()
+			.map(v -> Map.of("field", v.getPropertyPath().toString(), "message", v.getMessage()))
+			.toList();
+
+		GelfLogMessage logMessage = GelfLogMessage.of(GlobalExceptionHandler.class, "handleValidationException", "Validation failed", errors.toString(), correlationId, appName, appProfile);
+		logger.warn(logMessage);
+
+		return Response.status(Response.Status.BAD_REQUEST).entity(Map.of(
+			"internalCode", InternalCodeNormalizer.FALLBACK_INTERNAL_CODE,
+			"friendlyMessage", "Validation failed",
+			"errors", errors,
+			"internalTraceId", UUID.randomUUID(),
+			"type", ExceptionTypeEnum.BUSINESS
+		)).build();
+	}
+
+	private Response handleGenericException(Exception ex) {
+		genericExceptionsCounter.increment();
+		String correlationId = getCorrelationId();
+
+		StringWriter sw = new StringWriter();
+		ex.printStackTrace(new PrintWriter(sw));
+
+		var locale = requestContext.getLocale();
+		GelfLogMessage logMessage = GelfLogMessage.of(GlobalExceptionHandler.class, "handleGenericException", exceptionMessages.getMessage("default.internal-server-error", locale), sw.toString(), correlationId, appName, appProfile);
+		logger.error(logMessage);
+
+		return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(Map.of(
+			"internalCode", InternalCodeNormalizer.FALLBACK_INTERNAL_CODE,
+			"friendlyMessage", exceptionMessages.getMessage("default.internal-server-error.friendly", locale),
+			"internalTraceId", UUID.randomUUID(),
+			"type", ExceptionTypeEnum.APPLICATION
+		)).build();
+	}
+
+	private String getCorrelationId() {
+		Span span = Span.current();
+		return span.getSpanContext().isValid() ? span.getSpanContext().getTraceId() : "no-trace-id";
+	}
+}

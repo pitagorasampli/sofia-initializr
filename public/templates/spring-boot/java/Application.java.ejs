@@ -1,0 +1,40 @@
+package <%= basePackage %>;
+
+import java.net.InetAddress;
+import java.util.TimeZone;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@SpringBootApplication
+public class Application {
+
+    private static final Logger log = LoggerFactory.getLogger(Application.class);
+
+    public static void main(String[] args) throws Exception {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        var ctx = SpringApplication.run(Application.class, args);
+        var env = ctx.getEnvironment();
+
+        var appName = env.getProperty("spring.application.name");
+        var keyStore = env.getProperty("server.ssl.key-store", "");
+        var protocol = keyStore.isBlank() ? "http" : "https";
+        var port = env.getProperty("server.port", "8080");
+        var profiles = env.getActiveProfiles().length > 0
+                ? String.join(", ", env.getActiveProfiles())
+                : String.join(", ", env.getDefaultProfiles());
+
+        log.info("""
+                ----------------------------------------------------------
+                Application '{}' is running! Access URLs:
+                Local:      {}://localhost:{}
+                External:   {}://{}:{}
+                Profile(s): {}
+                ----------------------------------------------------------""",
+                appName, protocol, port, protocol,
+                InetAddress.getLocalHost().getHostAddress(), port, profiles);
+    }
+}

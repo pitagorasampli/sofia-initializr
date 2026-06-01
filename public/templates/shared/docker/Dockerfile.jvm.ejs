@@ -1,0 +1,39 @@
+FROM ghcr.io/graalvm/jdk-community:<%= javaVersion %> AS runtime
+
+WORKDIR /deployments
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+<% if (isQuarkus) { -%>
+COPY target/quarkus-app/lib/ lib/
+COPY target/quarkus-app/*.jar .
+COPY target/quarkus-app/app/ app/
+COPY target/quarkus-app/quarkus/ quarkus/
+<% } else { -%>
+COPY target/*.jar app.jar
+<% } -%>
+
+ARG VERSION
+ARG DD_GIT_REPOSITORY_URL
+ARG DD_GIT_COMMIT_SHA
+
+ENV DD_VERSION=${VERSION}
+ENV DD_GIT_REPOSITORY_URL=${DD_GIT_REPOSITORY_URL}
+ENV DD_GIT_COMMIT_SHA=${DD_GIT_COMMIT_SHA}
+ENV CURRENT_VERSION=${VERSION}
+
+EXPOSE 8080
+
+USER appuser
+
+<% if (isQuarkus) { -%>
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl --fail http://localhost:8080/q/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "quarkus-run.jar"]
+<% } else { -%>
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl --fail http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+<% } -%>

@@ -1,0 +1,12 @@
+package <%= basePackage %>.domain.exception;
+
+import <%= basePackage %>.domain.exception.enums.ExceptionTypeEnum;
+
+
+import java.util.UUID;
+
+public class ForbiddenException extends BaseException {
+	public ForbiddenException(String internalCode, String message, String friendlyMessage, UUID internalTraceId, ExceptionTypeEnum type) {
+		super(403, internalCode, message, friendlyMessage, internalTraceId, type);
+	}
+}

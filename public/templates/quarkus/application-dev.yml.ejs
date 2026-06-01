@@ -1,0 +1,41 @@
+quarkus:
+  log:
+    level: INFO
+    console:
+      json:
+        enabled: false
+  http:
+    port: 8081
+<% if (hasRestClients) { %>
+  rest-client:
+    # example-service:
+    #   url: http://localhost:8128/example
+<% } %>
+<% if (hasRedis) { %>
+  redis:
+    client-type: standalone
+    devservices:
+      enabled: true
+<% } %>
+<% if (hasMysql) { %>
+  datasource:
+    db-kind: mysql
+    username: root
+    password: root
+    jdbc:
+      url: jdbc:mysql://localhost:3306/<%= serviceName %>
+  hibernate-orm:
+    database:
+      generation: drop-and-create
+<% } %>
+<% if (hasMongodb) { %>
+  mongodb:
+    connection-string: mongodb://localhost:27017
+    database: <%= serviceName %>
+<% } %>
+  devservices:
+    enabled: true
+
+app:
+  profile: dev
+  squad-name: ${APP_SQUAD_NAME:plataforma}
