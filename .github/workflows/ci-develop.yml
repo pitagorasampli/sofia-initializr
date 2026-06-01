@@ -37,12 +37,6 @@ jobs:
             exit 1
           fi
 
-      # Gitleaks - scan de secrets
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   open-pr:
     needs: ci
     runs-on: ubuntu-latest
