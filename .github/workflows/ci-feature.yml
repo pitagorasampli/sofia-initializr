@@ -22,7 +22,7 @@ jobs:
 
       # Commitlint
       - name: Commitlint
-        run: npx commitlint --from $(git log --oneline origin/develop..HEAD --format="%H" | tail -1)^ --to HEAD
+        run: npx commitlint --from $(git log --oneline origin/main..HEAD --format="%H" | tail -1)^ --to HEAD
 
       # TypeScript check
       - name: TypeScript check
